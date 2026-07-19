@@ -79,7 +79,7 @@ local function update_head_look(player, player_data, dtime)
 		return
 	end
 
-	local target_pitch = clamp(player:get_look_vertical() or 0, -0.8, 0.8)
+	local target_pitch = clamp(-(player:get_look_vertical() or 0), -0.8, 0.8)
 	local current_pitch = player_data.head_pitch or 0
 	local blend = clamp((dtime or 0.1) * 10, 0.15, 1)
 	current_pitch = current_pitch + (target_pitch - current_pitch) * blend
