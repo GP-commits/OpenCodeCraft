@@ -6,21 +6,6 @@ OpenClassCraft is a classroom-focused voxel coding game built for students, teac
 
 The goal is simple: make programming concepts feel immediate. Students learn sequencing, direction, loops, conditions, debugging, and problem solving inside a familiar block world instead of starting from a blank code editor.
 
-## Features
-
-- Visual robot programming with START and instruction blocks
-- Programmable robot using a player-style model, custom robot skin, and gravity
-- Student, educator, and professor/host skins
-- Educator mode for classroom sessions
-- Diamond tools and starter classroom items given by default
-- Custom OpenClassCraft menu, logo, icon, and game branding
-- Local server join screen with player name, address, port, and password fields
-- Custom classroom-friendly textures for coding blocks, terrain, player, and robot assets
-- Simplified inventory UI with crafting removed
-- Fullscreen-first Windows experience
-- Branded About screen with OpenClassCraft developer information
-- OpenClassCraft executable and app icon for Windows builds
-
 ## OpenClassCraft vs Standard Luanti
 
 OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game experience made on top of the Luanti engine. Standard Luanti and Minetest are general-purpose voxel engines/platforms; OpenClassCraft is a ready-to-play educational coding game.
