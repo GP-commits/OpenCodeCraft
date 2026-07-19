@@ -34,7 +34,6 @@ OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game
 | Robot | Not included by default | Programmable robot with movement/action logic |
 | Player roles | Generic players | Student, educator, and professor/host roles |
 | Inventory | Standard inventory and crafting | Simplified lesson-friendly inventory |
-| Starter tools | Depends on game settings | Diamond tools and classroom items by default |
 | Networking | Standard multiplayer screens | Local classroom server join flow |
 | Branding | Luanti/Minetest identity | OpenClassCraft name, logo, icon, and executable |
 | Target audience | Players, modders, server owners | Students, teachers, workshops, and coding clubs |
