@@ -13,23 +13,18 @@ OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game
 | Area | Standard Luanti / Minetest | OpenClassCraft |
 | --- | --- | --- |
 | Purpose | General sandbox engine/game platform | Education-focused coding game |
-| First launch | Standard engine menus | Branded OpenClassCraft menu and About screen |
 | Learning flow | Depends on external mods/games | Built-in block-programming flow |
 | Programming | Usually text/mod based | Physical in-world coding blocks |
 | Robot | Not included by default | Programmable robot with movement/action logic |
 | Player roles | Generic players | Student, educator, and professor/host roles |
 | Inventory | Standard inventory and crafting | Simplified lesson-friendly inventory |
 | Networking | Standard multiplayer screens | Local classroom server join flow |
-| Branding | Luanti/Minetest identity | OpenClassCraft name, logo, icon, and executable |
 | Target audience | Players, modders, server owners | Students, teachers, workshops, and coding clubs |
 
 ## Key Differences
 
 - OpenClassCraft focuses on programming education instead of open-ended sandbox play.
 - Students learn sequencing, loops, conditions, and algorithms by placing blocks in the world.
-- The robot acts as the visible output of a student's program.
-- Educators can host sessions and use the professor skin from the beginning.
-- The menu, About screen, executable, icon, textures, and skins are customized for OpenClassCraft.
 - The interface is intentionally simpler so students can start learning faster.
 
 ## How To Play
