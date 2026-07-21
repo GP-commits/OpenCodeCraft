@@ -15,6 +15,9 @@ OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game
 | Purpose | General sandbox engine/game platform | Education-focused coding game |
 | Learning flow | Depends on external mods/games | Built-in block-programming flow |
 | Programming | Usually text/mod based | Physical in-world coding blocks |
+| Robot | Not included by default | Programmable robot with movement/action logic |
+| Coding blocks | Not included by default | START, Move, Turn, Loop, If, Else, While, Variable, Sensor, Wait, Place, Dig, and Stop blocks |
+| Classroom guidance | Depends on external mods or manual signs | Editable guide NPCs and chalkboards for lesson goals, instructions, and reference links |
 | Player roles | Generic players | Student, educator, and professor/host roles |
 | Inventory | Standard inventory and crafting | Simplified lesson-friendly inventory |
 | Accessibility | Uses the normal engine UI settings | Dyslexia-friendly font option, read-aloud helper messages, high contrast, simplified controls, colorblind support, and large UI mode |
@@ -25,6 +28,7 @@ OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game
 
 - OpenClassCraft focuses on programming education instead of open-ended sandbox play.
 - Students learn sequencing, loops, conditions, and algorithms by placing blocks in the world.
+- Educators can place guide NPCs and chalkboards directly in the world for lesson instructions and reference links.
 - The interface is intentionally simpler so students can start learning faster.
 - Accessibility options are built into settings for classrooms that need clearer fonts, larger UI, higher contrast, colorblind-friendly colors, simplified controls, and read-aloud helper text.
 
@@ -55,6 +59,11 @@ OpenClassCraft includes classroom accessibility settings:
 ## Educator Use
 
 Educators can host a world for students and use the professor skin by default. The main menu includes an Educator option and local server joining controls for classroom play.
+
+Educator classroom tools include:
+
+- Guide NPCs that teachers can place as in-world helpers for students. They can show instructions, extra information, and an active reference link.
+- Chalkboards for posting learning goals, lesson notes, and explicit task instructions inside the world.
 
 ## Windows Build
 

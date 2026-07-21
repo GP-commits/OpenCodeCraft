@@ -1,3 +1,0 @@
-Moved to lua_api.md
-
-URL: https://github.com/luanti-org/luanti/blob/master/doc/lua_api.md

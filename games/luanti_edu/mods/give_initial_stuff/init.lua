@@ -9,6 +9,8 @@ local STARTER_ITEMS = {
 
     -- Robot Spawner
     "luanti_robot:spawner",
+    "openclasscraft_classroom:guide_npc_spawner",
+    "openclasscraft_classroom:chalkboard",
 
     -- All Coding Blocks (5 of each)
     "luanti_coding:start",
@@ -41,6 +43,7 @@ local function give_stuff(player)
         "You have been given:\n" ..
         "  - Pickaxe, Axe, and Shovel\n" ..
         "  - A Robot Spawner\n" ..
+        "  - Guide NPC and Chalkboard\n" ..
         "  - All Programming Blocks\n" ..
         "Place the Robot Spawner, right-click to spawn your robot,\n" ..
         "then place a START block and connect programming blocks to the right!\n" ..
