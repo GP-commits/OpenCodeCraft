@@ -15,8 +15,6 @@ OpenClassCraft is not just a renamed Luanti build. It is a learning-focused game
 | Purpose | General sandbox engine/game platform | Education-focused coding game |
 | Learning flow | Depends on external mods/games | Built-in block-programming flow |
 | Programming | Usually text/mod based | Physical in-world coding blocks |
-| Robot | Not included by default | Programmable robot with movement/action logic |
-| Coding blocks | Not included by default | START, Move, Turn, Loop, If, Else, While, Variable, Sensor, Wait, Place, Dig, and Stop blocks |
 | Player roles | Generic players | Student, educator, and professor/host roles |
 | Inventory | Standard inventory and crafting | Simplified lesson-friendly inventory |
 | Accessibility | Uses the normal engine UI settings | Dyslexia-friendly font option, read-aloud helper messages, high contrast, simplified controls, colorblind support, and large UI mode |
