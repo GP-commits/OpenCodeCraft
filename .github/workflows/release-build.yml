@@ -1,0 +1,120 @@
+name: release-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        default: openclasscraft-latest
+
+permissions:
+  contents: write
+
+jobs:
+  ubuntu:
+    name: Ubuntu x64 package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          source ./util/ci/common.sh
+          install_linux_deps g++-14 libluajit-5.1-dev
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRUN_IN_PLACE=1 \
+            -DENABLE_POSTGRESQL=OFF \
+            -DENABLE_LUAJIT=TRUE \
+            -DREQUIRE_LUAJIT=TRUE
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --parallel "$(nproc)"
+
+      - name: Package
+        shell: bash
+        run: |
+          cpack --config build/CPackConfig.cmake -G TGZ -B Package
+          mkdir -p artifact
+          cp Package/*.tar.gz artifact/OpenClassCraft-Ubuntu-x64.tar.gz
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: OpenClassCraft-Ubuntu-x64
+          path: artifact/OpenClassCraft-Ubuntu-x64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Windows x64 package
+    runs-on: windows-2025-vs2026
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Restore from cache and run vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: '${{ github.workspace }}\vcpkg'
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B build -G "Visual Studio 18 2026" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DENABLE_POSTGRESQL=OFF `
+            -DENABLE_LUAJIT=TRUE `
+            -DREQUIRE_LUAJIT=TRUE `
+            -DRUN_IN_PLACE=1
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          cpack --config build\CPackConfig.cmake -G ZIP -B Package
+          New-Item -ItemType Directory -Force artifact | Out-Null
+          Copy-Item Package\*.zip artifact\OpenClassCraft-Windows-x64.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: OpenClassCraft-Windows-x64
+          path: artifact\OpenClassCraft-Windows-x64.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-24.04
+    needs: [ubuntu, windows]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: release-assets
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG" --force
+          gh release create "$TAG" \
+            --title "OpenClassCraft Windows and Ubuntu Build" \
+            --notes "Fresh OpenClassCraft builds for Windows x64 and Ubuntu x64 from commit $GITHUB_SHA."
+          gh release upload "$TAG" release-assets/**/*
