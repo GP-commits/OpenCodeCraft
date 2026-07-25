@@ -1,5 +1,100 @@
 local S = minetest.get_translator("openclasscraft_classroom")
 
+local NPC_GRAVITY = -9.81
+local NPC_LOOK_RADIUS = 6
+local NPC_HEAD_BONE = "Head"
+local NPC_MODEL_YAW_OFFSET = 0
+local NPC_BODY_TURN_THRESHOLD = math.rad(60)
+local NPC_BODY_TURN_BLEND = 0.12
+local NPC_HEAD_SMOOTH_BLEND = 0.25
+local NPC_MAX_HEAD_YAW = math.rad(70)
+local NPC_MAX_HEAD_PITCH = math.rad(35)
+
+local function clamp(value, minimum, maximum)
+	return math.max(minimum, math.min(maximum, value))
+end
+
+local function wrap_angle(angle)
+	return (angle + math.pi) % (math.pi * 2) - math.pi
+end
+
+local function smooth_angle(current, target, blend)
+	local difference = wrap_angle(target - current)
+	return wrap_angle(current + difference * blend)
+end
+
+local function get_nearest_player(pos)
+	local closest_player
+	local closest_distance = NPC_LOOK_RADIUS * NPC_LOOK_RADIUS
+
+	for _, object in ipairs(minetest.get_objects_inside_radius(pos, NPC_LOOK_RADIUS)) do
+		if object:is_player() then
+			local player_pos = object:get_pos()
+			local distance = vector.distance(pos, player_pos) ^ 2
+			if distance < closest_distance then
+				closest_player = object
+				closest_distance = distance
+			end
+		end
+	end
+
+	return closest_player
+end
+
+local function update_npc_head_look(self, dtime)
+	if not self.object.set_bone_override then
+		return
+	end
+
+	local npc_pos = self.object:get_pos()
+	local player = npc_pos and get_nearest_player(npc_pos)
+	if not player then
+		self._head_yaw = smooth_angle(self._head_yaw or 0, 0, NPC_HEAD_SMOOTH_BLEND)
+		self._head_pitch = smooth_angle(self._head_pitch or 0, 0, NPC_HEAD_SMOOTH_BLEND)
+		self.object:set_bone_override(NPC_HEAD_BONE, {
+			rotation = {
+				vec = {x = self._head_pitch, y = self._head_yaw, z = 0},
+				interpolation = 0.08,
+				absolute = false,
+			},
+		})
+		return
+	end
+
+	local player_pos = player:get_pos()
+	local player_eye_height = (player:get_properties().eye_height or 1.47)
+	player_pos = vector.offset(player_pos, 0, player_eye_height, 0)
+	local eye_pos = vector.offset(npc_pos, 0, 1.45, 0)
+	local direction = vector.subtract(player_pos, eye_pos)
+	local horizontal_distance = math.sqrt(direction.x * direction.x + direction.z * direction.z)
+	-- X is pitch (up/down), Y is yaw (left/right), and Z roll stays at zero.
+	local target_pitch = clamp(-math.atan2(direction.y, horizontal_distance),
+		-NPC_MAX_HEAD_PITCH, NPC_MAX_HEAD_PITCH)
+	-- minetest.dir_to_yaw is the engine-safe equivalent of atan2(dx, dz).
+	local target_yaw = minetest.dir_to_yaw({x = direction.x, y = 0, z = direction.z}) + NPC_MODEL_YAW_OFFSET
+	local body_yaw = self.object:get_yaw() or 0
+	local body_difference = wrap_angle(target_yaw - body_yaw)
+
+	-- Once the player is farther behind than the neck can turn naturally, let
+	-- the body catch up smoothly and keep the head inside its safe range.
+	if math.abs(body_difference) > NPC_BODY_TURN_THRESHOLD then
+		body_yaw = wrap_angle(body_yaw + body_difference * NPC_BODY_TURN_BLEND)
+		self.object:set_yaw(body_yaw)
+	end
+
+	local relative_head_yaw = clamp(wrap_angle(target_yaw - body_yaw), -NPC_MAX_HEAD_YAW, NPC_MAX_HEAD_YAW)
+	self._head_yaw = smooth_angle(self._head_yaw or 0, relative_head_yaw, NPC_HEAD_SMOOTH_BLEND)
+	self._head_pitch = smooth_angle(self._head_pitch or 0, target_pitch, NPC_HEAD_SMOOTH_BLEND)
+
+	self.object:set_bone_override(NPC_HEAD_BONE, {
+		rotation = {
+			vec = {x = self._head_pitch, y = self._head_yaw, z = 0},
+			interpolation = 0.08,
+			absolute = false,
+		},
+	})
+end
+
 local function esc(value)
 	return minetest.formspec_escape(value or "")
 end
@@ -68,6 +163,9 @@ minetest.register_entity("openclasscraft_classroom:guide_npc", {
 	_message = "Add instructions for students here.",
 	_link = "",
 	_editor = "",
+	_look_timer = 0,
+	_head_yaw = 0,
+	_head_pitch = 0,
 
 	on_activate = function(self, staticdata)
 		self._id = self._id ~= "" and self._id or tostring(math.random(100000, 999999))
@@ -85,6 +183,17 @@ minetest.register_entity("openclasscraft_classroom:guide_npc", {
 			text = self._title ~= "" and self._title or "Class Guide",
 			color = "#FFFFFF",
 		})
+		self.object:set_acceleration(vector.new(0, NPC_GRAVITY, 0))
+	end,
+
+	on_step = function(self, dtime)
+		self._look_timer = self._look_timer + dtime
+		if self._look_timer < 0.05 then
+			return
+		end
+		local look_dtime = self._look_timer
+		self._look_timer = 0
+		update_npc_head_look(self, look_dtime)
 	end,
 
 	get_staticdata = function(self)

@@ -4,6 +4,8 @@ player_api = {}
 -- the classic character rig feel floaty.
 local animation_blend = 0.12
 local head_bone_name = "Head"
+local run_speed_multiplier = 1.55
+local run_animation_multiplier = 1.4
 
 player_api.registered_models = {}
 
@@ -72,6 +74,32 @@ local function get_horizontal_speed(player)
 		return 0
 	end
 	return math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
+end
+
+local function is_moving(controls)
+	return controls.up or controls.down or controls.left or controls.right
+end
+
+local function set_run_state(player, player_data, running)
+	if player_data.running == running then
+		return
+	end
+
+	player_data.running = running
+	local physics = player:get_physics_override()
+	player_data.base_speed = player_data.base_speed or physics.speed or 1
+	player:set_physics_override({
+		speed = player_data.base_speed * (running and run_speed_multiplier or 1),
+	})
+
+	local model = models[player_data.model]
+	if model then
+		local animations = model.animations
+		player:set_local_animation(
+			animations.stand, animations.walk, animations.mine, animations.walk_mine,
+			(model.animation_speed or 30) * (running and run_animation_multiplier or 1)
+		)
+	end
 end
 
 local function update_head_look(player, player_data, dtime)
@@ -233,8 +261,14 @@ function player_api.globalstep(dtime)
 		local model = player_data and models[player_data.model]
 		if model and not player_attached[name] then
 			local controls = player:get_player_control()
+			local moving = is_moving(controls)
+			local running = controls.aux1 and moving and not controls.sneak and player:get_hp() > 0
+			set_run_state(player, player_data, running)
 			local horizontal_speed = get_horizontal_speed(player)
 			local animation_speed_mod = round_animation_speed(clamp(horizontal_speed * 9, 22, 42))
+			if running then
+				animation_speed_mod = round_animation_speed(animation_speed_mod * run_animation_multiplier)
+			end
 
 			-- Determine if the player is sneaking, and reduce animation speed if so
 			if controls.sneak then
@@ -246,7 +280,7 @@ function player_api.globalstep(dtime)
 			-- Apply animations based on what the player is doing
 			if player:get_hp() == 0 then
 				player_set_animation(player, "lay")
-			elseif controls.up or controls.down or controls.left or controls.right then
+			elseif moving then
 				if controls.LMB or controls.RMB then
 					player_set_animation(player, "walk_mine", animation_speed_mod)
 				else
