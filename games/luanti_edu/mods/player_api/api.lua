@@ -3,9 +3,12 @@ player_api = {}
 -- Player animation blending. A small value softens transitions without making
 -- the classic character rig feel floaty.
 local animation_blend = 0.12
+local body_bone_name = "Body"
 local head_bone_name = "Head"
 local run_speed_multiplier = 1.55
 local run_animation_multiplier = 1.4
+local head_turn_limit = math.rad(70)
+local body_turn_threshold = math.rad(60)
 
 player_api.registered_models = {}
 
@@ -64,6 +67,14 @@ local function clamp(value, min_value, max_value)
 	return math.max(min_value, math.min(max_value, value))
 end
 
+local function wrap_angle(angle)
+	return (angle + math.pi) % (math.pi * 2) - math.pi
+end
+
+local function smooth_angle(current, target, blend)
+	return current + wrap_angle(target - current) * blend
+end
+
 local function round_animation_speed(speed)
 	return math.floor(speed * 2 + 0.5) / 2
 end
@@ -107,15 +118,42 @@ local function update_head_look(player, player_data, dtime)
 		return
 	end
 
+	local blend = clamp((dtime or 0.1) * 10, 0.15, 1)
+	local look_yaw = player:get_look_horizontal() or 0
+	local body_yaw = player_data.body_yaw or look_yaw
+	local body_difference = wrap_angle(look_yaw - body_yaw)
+
+	-- Let the head lead by a natural amount. Once the player looks farther
+	-- than that, the character's torso smoothly follows the camera direction.
+	if math.abs(body_difference) > body_turn_threshold then
+		body_yaw = smooth_angle(body_yaw, look_yaw, blend * 0.45)
+	end
+	player_data.body_yaw = body_yaw
+
+	local target_head_yaw = clamp(
+		wrap_angle(look_yaw - body_yaw), -head_turn_limit, head_turn_limit)
+	local current_head_yaw = smooth_angle(
+		player_data.head_yaw or 0, target_head_yaw, blend)
+	player_data.head_yaw = current_head_yaw
+
 	local target_pitch = clamp(-(player:get_look_vertical() or 0), -0.8, 0.8)
 	local current_pitch = player_data.head_pitch or 0
-	local blend = clamp((dtime or 0.1) * 10, 0.15, 1)
 	current_pitch = current_pitch + (target_pitch - current_pitch) * blend
 	player_data.head_pitch = current_pitch
 
+	-- The Body bone counter-rotates beneath the head. This keeps the local
+	-- camera responsive while other players see a body that follows naturally.
+	player:set_bone_override(body_bone_name, {
+		rotation = {
+			vec = {x = 0, y = -current_head_yaw, z = 0},
+			interpolation = 0.08,
+			absolute = false,
+		},
+	})
+
 	player:set_bone_override(head_bone_name, {
 		rotation = {
-			vec = {x = current_pitch, y = 0, z = 0},
+			vec = {x = current_pitch, y = current_head_yaw, z = 0},
 			interpolation = 0.08,
 			absolute = false,
 		},

@@ -123,6 +123,164 @@ local function can_edit(player, owner)
 	return owner == "" or owner == name or minetest.check_player_privs(name, {server = true})
 end
 
+local lesson_storage = minetest.get_mod_storage()
+local lesson_task_types = {
+	chalkboard = "Read chalkboard",
+	guide = "Talk to guide",
+	marker = "Reach checkpoint",
+	teacher = "Teacher check",
+}
+local lesson_type_order = {"chalkboard", "guide", "marker", "teacher"}
+
+local function get_lesson()
+	local data = lesson_storage:get_string("active_lesson")
+	if data == "" then
+		return {owner = "", title = "", goal = "", tasks = {}, revision = 1}
+	end
+	local lesson = minetest.deserialize(data)
+	if type(lesson) ~= "table" then
+		return {owner = "", title = "", goal = "", tasks = {}, revision = 1}
+	end
+	lesson.owner = lesson.owner or ""
+	lesson.title = lesson.title or ""
+	lesson.goal = lesson.goal or ""
+	lesson.tasks = lesson.tasks or {}
+	lesson.revision = lesson.revision or 1
+	return lesson
+end
+
+local function save_lesson(lesson)
+	lesson_storage:set_string("active_lesson", minetest.serialize(lesson))
+end
+
+local function get_lesson_progress(player, lesson)
+	local meta = player:get_meta()
+	if meta:get_int("openclasscraft_lesson_revision") ~= lesson.revision then
+		meta:set_int("openclasscraft_lesson_revision", lesson.revision)
+		meta:set_int("openclasscraft_lesson_progress", 0)
+	end
+	return meta:get_int("openclasscraft_lesson_progress")
+end
+
+local function set_lesson_progress(player, lesson, progress)
+	local meta = player:get_meta()
+	meta:set_int("openclasscraft_lesson_revision", lesson.revision)
+	meta:set_int("openclasscraft_lesson_progress", progress)
+end
+
+local function lesson_try_advance(player, source)
+	local lesson = get_lesson()
+	if lesson.title == "" or #lesson.tasks == 0 then
+		return false
+	end
+	local progress = get_lesson_progress(player, lesson)
+	local task = lesson.tasks[progress + 1]
+	if not task or task.kind ~= source then
+		return false
+	end
+
+	progress = progress + 1
+	set_lesson_progress(player, lesson, progress)
+	if progress >= #lesson.tasks then
+		minetest.chat_send_player(player:get_player_name(),
+			"[OpenClassCraft] Lesson complete: " .. lesson.title)
+	else
+		minetest.chat_send_player(player:get_player_name(),
+			"[OpenClassCraft] Task complete. Next: " .. lesson.tasks[progress + 1].text)
+	end
+	return true
+end
+
+local function get_kind_from_label(label)
+	for kind, display_name in pairs(lesson_task_types) do
+		if label == display_name then
+			return kind
+		end
+	end
+	return "teacher"
+end
+
+local function show_lesson_builder(player, lesson)
+	local task_fields = {}
+	for index = 1, 4 do
+		local task = lesson.tasks[index] or {kind = "teacher", text = ""}
+		local y = 4.25 + (index - 1) * 0.85
+		local labels = {}
+		local selected_index = 1
+		for type_index, kind in ipairs(lesson_type_order) do
+			labels[#labels + 1] = lesson_task_types[kind]
+			if kind == task.kind then
+				selected_index = type_index
+			end
+		end
+		task_fields[#task_fields + 1] =
+			"dropdown[0.5," .. y .. ";3.2,0.7;task_type_" .. index .. ";" ..
+			table.concat(labels, ",") .. ";" .. selected_index .. ";false]" ..
+			"field[3.95," .. (y - 0.05) .. ";9.5,0.7;task_" .. index .. ";;" .. esc(task.text) .. "]"
+	end
+
+	local progress_lines = {}
+	for _, student in ipairs(minetest.get_connected_players()) do
+		local progress = get_lesson_progress(student, lesson)
+		progress_lines[#progress_lines + 1] = student:get_player_name() .. ": " ..
+			math.min(progress, #lesson.tasks) .. "/" .. #lesson.tasks
+	end
+	if #progress_lines == 0 then
+		progress_lines[1] = "No students connected"
+	end
+
+	minetest.show_formspec(player:get_player_name(), "openclasscraft_classroom:lesson_builder",
+		"formspec_version[6]size[14,11]" ..
+		"label[0.5,0.45;Lesson Builder]" ..
+		"field[0.5,1.25;13,0.7;lesson_title;Lesson title;" .. esc(lesson.title) .. "]" ..
+		"textarea[0.5,2.0;13,1.35;lesson_goal;Learning goal;" .. esc(lesson.goal) .. "]" ..
+		"label[0.5,3.55;Ordered tasks]" ..
+		table.concat(task_fields) ..
+		"textarea[0.5,7.8;7.2,1.65;progress;Student progress;" ..
+			esc(table.concat(progress_lines, "\n")) .. "]" ..
+		"button[8.25,8.1;2.2,0.8;reset;Reset progress]" ..
+		"button_exit[10.75,8.1;2.2,0.8;save;Save lesson]" ..
+		"label[8.25,9.25;Students progress automatically by using the matching classroom tool.]"
+	)
+end
+
+local function show_lesson_progress(player, lesson)
+	local progress = get_lesson_progress(player, lesson)
+	local lines = {}
+	for index, task in ipairs(lesson.tasks) do
+		local status = index <= progress and "Done" or "Next"
+		if index > progress + 1 then
+			status = "Locked"
+		end
+		lines[#lines + 1] = status .. " - " .. task.text .. " (" .. lesson_task_types[task.kind] .. ")"
+	end
+	if #lines == 0 then
+		lines[1] = "Your teacher has not added tasks yet."
+	end
+	local next_task = lesson.tasks[progress + 1]
+	local controls = "button_exit[9.6,7.9;2.3,0.8;close;Close]"
+	if next_task and next_task.kind == "teacher" then
+		controls = "button[7.1,7.9;2.2,0.8;complete;Mark complete]" .. controls
+	end
+	minetest.show_formspec(player:get_player_name(), "openclasscraft_classroom:lesson_progress",
+		"formspec_version[6]size[12.5,9]" ..
+		"label[0.5,0.5;" .. esc(lesson.title) .. "]" ..
+		"textarea[0.5,1.1;11.5,1.4;goal;Learning goal;" .. esc(lesson.goal) .. "]" ..
+		"textarea[0.5,2.85;11.5,4.3;tasks;Lesson tasks;" .. esc(table.concat(lines, "\n")) .. "]" ..
+		"label[0.5,7.55;Progress: " .. math.min(progress, #lesson.tasks) .. "/" .. #lesson.tasks .. "]" ..
+		controls
+	)
+end
+
+local function show_lesson_form(player)
+	local lesson = get_lesson()
+	if can_edit(player, lesson.owner) then
+		show_lesson_builder(player, lesson)
+	else
+		show_lesson_progress(player, lesson)
+	end
+end
+
 local function show_npc_form(player, obj)
 	local entity = obj:get_luaentity()
 	if not entity then
@@ -213,6 +371,7 @@ minetest.register_entity("openclasscraft_classroom:guide_npc", {
 			return
 		end
 		send_reference(name, self._title, self._message, self._link)
+		lesson_try_advance(clicker, "guide")
 	end,
 })
 
@@ -266,6 +425,34 @@ minetest.register_node("openclasscraft_classroom:chalkboard", {
 		end
 		send_reference(clicker:get_player_name(), meta:get_string("title"),
 			meta:get_string("message"), meta:get_string("link"))
+		lesson_try_advance(clicker, "chalkboard")
+	end,
+})
+
+minetest.register_node("openclasscraft_classroom:lesson_marker", {
+	description = S("Lesson Checkpoint"),
+	tiles = {
+		"default_steel_block.png^[colorize:#40B9D5:80",
+		"default_steel_block.png^[colorize:#40B9D5:80",
+		"default_steel_block.png^[colorize:#28779C:110",
+	},
+	groups = {cracky = 2, oddly_breakable_by_hand = 2},
+	on_rightclick = function(pos, node, clicker)
+		if lesson_try_advance(clicker, "marker") then
+			minetest.chat_send_player(clicker:get_player_name(),
+				"[OpenClassCraft] Checkpoint reached.")
+		end
+	end,
+})
+
+minetest.register_craftitem("openclasscraft_classroom:lesson_planner", {
+	description = S("Lesson Planner"),
+	inventory_image = "default_book.png^[colorize:#39B6E8:85",
+	on_use = function(itemstack, user)
+		if user and user:is_player() then
+			show_lesson_form(user)
+		end
+		return itemstack
 	end,
 })
 
@@ -294,6 +481,48 @@ minetest.register_craftitem("openclasscraft_classroom:guide_npc_spawner", {
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
+	if formname == "openclasscraft_classroom:lesson_builder" then
+		local lesson = get_lesson()
+		if not can_edit(player, lesson.owner) then
+			return true
+		end
+		if fields.reset then
+			lesson.revision = lesson.revision + 1
+			save_lesson(lesson)
+			show_lesson_builder(player, lesson)
+			return true
+		end
+		if fields.save then
+			lesson.owner = lesson.owner ~= "" and lesson.owner or player:get_player_name()
+			lesson.title = trim(fields.lesson_title)
+			lesson.goal = trim(fields.lesson_goal)
+			lesson.tasks = {}
+			for index = 1, 4 do
+				local text = trim(fields["task_" .. index])
+				if text ~= "" then
+					lesson.tasks[#lesson.tasks + 1] = {
+						kind = get_kind_from_label(fields["task_type_" .. index]),
+						text = text,
+					}
+				end
+			end
+			lesson.revision = lesson.revision + 1
+			save_lesson(lesson)
+			minetest.chat_send_player(player:get_player_name(),
+				"[OpenClassCraft] Lesson saved. Students can open the Lesson Planner to begin.")
+			return true
+		end
+		return true
+	end
+
+	if formname == "openclasscraft_classroom:lesson_progress" then
+		if fields.complete then
+			lesson_try_advance(player, "teacher")
+			show_lesson_progress(player, get_lesson())
+		end
+		return true
+	end
+
 	if not fields.save then
 		return
 	end

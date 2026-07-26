@@ -11,6 +11,8 @@ local STARTER_ITEMS = {
     "luanti_robot:spawner",
     "openclasscraft_classroom:guide_npc_spawner",
     "openclasscraft_classroom:chalkboard",
+    "openclasscraft_classroom:lesson_planner",
+    "openclasscraft_classroom:lesson_marker 3",
 
     -- All Coding Blocks (5 of each)
     "luanti_coding:start",
@@ -39,11 +41,11 @@ local function give_stuff(player)
         end
     end
     minetest.chat_send_player(player:get_player_name(),
-        "=== Welcome to Luanti Edu! ===\n" ..
+        "=== Welcome to OpenClassCraft! ===\n" ..
         "You have been given:\n" ..
         "  - Pickaxe, Axe, and Shovel\n" ..
         "  - A Robot Spawner\n" ..
-        "  - Guide NPC and Chalkboard\n" ..
+        "  - Guide NPC, Chalkboard, and Lesson Planner\n" ..
         "  - All Programming Blocks\n" ..
         "Place the Robot Spawner, right-click to spawn your robot,\n" ..
         "then place a START block and connect programming blocks to the right!\n" ..
