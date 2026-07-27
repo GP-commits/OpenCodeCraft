@@ -24,14 +24,18 @@ player_api.register_model("character.b3d", {
 minetest.register_on_joinplayer(function(player)
 	local name = player:get_player_name()
 	local host_name = minetest.settings:get("name") or ""
+	local educator_mode = minetest.settings:get_bool("educator_mode") or false
 	local texture = "character.png"
+	local role = "student"
 
-	if minetest.is_singleplayer() or name == host_name then
+	if educator_mode and (minetest.is_singleplayer() or name == host_name) then
 		texture = "professor.png"
+		role = "educator"
 	end
 
 	player_api.set_model(player, "character.b3d")
 	player_api.set_textures(player, {texture})
+	player:get_meta():set_string("openclasscraft_role", role)
 end)
 
 minetest.register_chatcommand("student_skin", {

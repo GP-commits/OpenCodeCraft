@@ -53,7 +53,7 @@ local function update_npc_head_look(self, dtime)
 		self._head_pitch = smooth_angle(self._head_pitch or 0, 0, NPC_HEAD_SMOOTH_BLEND)
 		self.object:set_bone_override(NPC_HEAD_BONE, {
 			rotation = {
-				vec = {x = self._head_pitch, y = self._head_yaw, z = 0},
+				vec = {x = self._head_pitch, y = -self._head_yaw, z = 0},
 				interpolation = 0.08,
 				absolute = false,
 			},
@@ -88,7 +88,7 @@ local function update_npc_head_look(self, dtime)
 
 	self.object:set_bone_override(NPC_HEAD_BONE, {
 		rotation = {
-			vec = {x = self._head_pitch, y = self._head_yaw, z = 0},
+			vec = {x = self._head_pitch, y = -self._head_yaw, z = 0},
 			interpolation = 0.08,
 			absolute = false,
 		},
@@ -113,6 +113,48 @@ local function send_reference(name, title, message, link)
 	if link ~= "" then
 		minetest.chat_send_player(name, "Reference: " .. link)
 	end
+end
+
+local guide_dialogue_links = {}
+
+local function wrap_dialogue(text, line_width)
+	local lines = {}
+	local line = ""
+	for word in (text or ""):gmatch("%S+") do
+		if #line > 0 and #line + #word + 1 > line_width then
+			lines[#lines + 1] = line
+			line = word
+		else
+			line = line == "" and word or line .. " " .. word
+		end
+	end
+	if line ~= "" then
+		lines[#lines + 1] = line
+	end
+	return table.concat(lines, "\n")
+end
+
+local function show_guide_dialogue(player, title, message, link)
+	local name = player:get_player_name()
+	guide_dialogue_links[name] = link or ""
+	local dialogue = wrap_dialogue(message ~= "" and message or "Hello!", 54)
+	local reference_button = ""
+	if link and link ~= "" then
+		reference_button = "button[7.9,5.9;2.0,0.75;reference;Reference]"
+	end
+
+	minetest.show_formspec(name, "openclasscraft_classroom:guide_dialogue",
+		"formspec_version[6]size[12,7]no_prepend[]bgcolor[#00000000;false]" ..
+		"box[0.25,0.3;11.5,5.7;#121826F2]" ..
+		"box[0.48,0.53;11.04,5.24;#2A3347]" ..
+		"box[0.75,0.8;3.15,0.7;#F2C94C]" ..
+		"label[1.0,1.0;CLASS GUIDE]" ..
+		"label[0.9,1.78;" .. esc(title ~= "" and title or "Class Guide") .. "]" ..
+		"label[0.9,2.4;" .. esc(dialogue) .. "]" ..
+		"label[0.9,5.28;Click the guide again any time you need help.]" ..
+		reference_button ..
+		"button_exit[10.05,5.9;1.2,0.75;close;Close]"
+	)
 end
 
 local function can_edit(player, owner)
@@ -365,12 +407,11 @@ minetest.register_entity("openclasscraft_classroom:guide_npc", {
 	end,
 
 	on_rightclick = function(self, clicker)
-		local name = clicker:get_player_name()
 		if clicker:get_player_control().sneak and can_edit(clicker, self._owner) then
 			show_npc_form(clicker, self.object)
 			return
 		end
-		send_reference(name, self._title, self._message, self._link)
+		show_guide_dialogue(clicker, self._title, self._message, self._link)
 		lesson_try_advance(clicker, "guide")
 	end,
 })
@@ -458,7 +499,7 @@ minetest.register_craftitem("openclasscraft_classroom:lesson_planner", {
 
 minetest.register_craftitem("openclasscraft_classroom:guide_npc_spawner", {
 	description = S("Guide NPC"),
-	inventory_image = "character.png^[resize:64x64",
+	inventory_image = "openclasscraft_classroom_guide_npc.png",
 	on_place = function(itemstack, placer, pointed_thing)
 		if pointed_thing.type ~= "node" then
 			return itemstack
@@ -481,6 +522,16 @@ minetest.register_craftitem("openclasscraft_classroom:guide_npc_spawner", {
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
+	if formname == "openclasscraft_classroom:guide_dialogue" then
+		if fields.reference then
+			local link = guide_dialogue_links[player:get_player_name()]
+			if link and link ~= "" then
+				minetest.chat_send_player(player:get_player_name(), "Reference: " .. link)
+			end
+		end
+		return true
+	end
+
 	if formname == "openclasscraft_classroom:lesson_builder" then
 		local lesson = get_lesson()
 		if not can_edit(player, lesson.owner) then
