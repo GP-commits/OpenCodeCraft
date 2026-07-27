@@ -1,0 +1,9 @@
+newmtl stand
+Ka 1 1 1
+Kd 1 1 1
+map_Kd default_steel_block.png
+
+newmtl cloth
+Ka 1 1 1
+Kd 1 1 1
+map_Kd openclasscraft_classroom_flag_red.png

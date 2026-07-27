@@ -170,9 +170,11 @@ local lesson_task_types = {
 	chalkboard = "Read chalkboard",
 	guide = "Talk to guide",
 	marker = "Reach checkpoint",
+	water = "Make water",
+	acids_bases = "Identify acids and bases",
 	teacher = "Teacher check",
 }
-local lesson_type_order = {"chalkboard", "guide", "marker", "teacher"}
+local lesson_type_order = {"chalkboard", "guide", "marker", "water", "acids_bases", "teacher"}
 
 local function get_lesson()
 	local data = lesson_storage:get_string("active_lesson")
@@ -418,66 +420,258 @@ minetest.register_entity("openclasscraft_classroom:guide_npc", {
 
 local function show_chalkboard_form(pos, player)
 	local meta = minetest.get_meta(pos)
+	local board_name = meta:get_string("board_name")
+	if board_name == "" then
+		board_name = "Classroom Board"
+	end
 	minetest.show_formspec(player:get_player_name(),
 		"openclasscraft_classroom:chalkboard:" .. minetest.pos_to_string(pos),
 		"formspec_version[6]" ..
-		"size[12,8]" ..
-		"label[0.5,0.5;Chalkboard]" ..
-		"field[0.5,1.2;11,0.8;title;Learning goal;" .. esc(meta:get_string("title")) .. "]" ..
-		"textarea[0.5,2.3;11,3.3;message;Instructions;" .. esc(meta:get_string("message")) .. "]" ..
-		"field[0.5,6.1;11,0.8;link;Reference link;" .. esc(meta:get_string("link")) .. "]" ..
-		"button_exit[8.2,7;1.5,0.8;cancel;Cancel]" ..
-		"button_exit[9.9,7;1.6,0.8;save;Save]"
+		"size[13,10]" ..
+		"label[0.5,0.5;" .. esc(board_name) .. " Editor]" ..
+		"field[0.5,1.25;12,0.8;title;Heading (optional);" .. esc(meta:get_string("title")) .. "]" ..
+		"textarea[0.5,2.2;12,5.5;message;Board text;" .. esc(meta:get_string("message")) .. "]" ..
+		"field[0.5,8.0;12,0.8;link;Reference link;" .. esc(meta:get_string("link")) .. "]" ..
+		"button_exit[9.2,9;1.5,0.8;cancel;Cancel]" ..
+		"button_exit[10.9,9;1.6,0.8;save;Save]"
 	)
 end
 
-minetest.register_node("openclasscraft_classroom:chalkboard", {
-	description = S("Chalkboard"),
-	tiles = {
-		"default_wood.png",
-		"default_wood.png",
-		"default_wood.png",
-		"default_wood.png",
-		"default_wood.png",
-		"default_aspen_wood.png^[colorize:#1C3F2B:160",
-	},
-	paramtype2 = "facedir",
-	groups = {choppy = 2, oddly_breakable_by_hand = 2},
-	on_construct = function(pos)
-		local meta = minetest.get_meta(pos)
-		meta:set_string("title", "Learning Goal")
-		meta:set_string("message", "Write lesson instructions here.")
-		meta:set_string("link", "")
-		meta:set_string("owner", "")
-		meta:set_string("infotext", "Chalkboard")
-	end,
-	after_place_node = function(pos, placer)
-		if placer and placer:is_player() then
-			local meta = minetest.get_meta(pos)
-			meta:set_string("owner", placer:get_player_name())
-			show_chalkboard_form(pos, placer)
+local board_reading_links = {}
+
+local function show_board_reading_form(pos, player)
+	local meta = minetest.get_meta(pos)
+	local name = player:get_player_name()
+	board_reading_links[name] = meta:get_string("link")
+	local reference_button = ""
+	if board_reading_links[name] ~= "" then
+		reference_button = "button[8.8,7.9;2.0,0.8;reference;Reference]"
+	end
+	minetest.show_formspec(name, "openclasscraft_classroom:board_reading",
+		"formspec_version[6]size[12,9]" ..
+		"box[0.3,0.3;11.4,7.2;#11161DE8]" ..
+		"label[0.7,0.75;" .. esc(meta:get_string("title")) .. "]" ..
+		"textarea[0.7,1.35;10.6,5.7;instructions;Instructions;" .. esc(meta:get_string("message")) .. "]" ..
+		reference_button ..
+		"button_exit[10.9,7.9;0.8,0.8;close;Close]"
+	)
+end
+
+local board_label_entity = "openclasscraft_classroom:board_label"
+
+local function board_label_text(meta)
+	local title = trim(meta:get_string("title"))
+	local message = trim(meta:get_string("message")):gsub("%s+", " ")
+	if #message > 84 then
+		message = message:sub(1, 81) .. "..."
+	end
+	if title == "" then
+		return message == "" and "" or wrap_dialogue(message, 34)
+	end
+	if message == "" then
+		return title
+	end
+	return title .. "\n" .. wrap_dialogue(message, 34)
+end
+
+local function same_board_position(first, second)
+	return first and second and first.x == second.x and first.y == second.y and first.z == second.z
+end
+
+local function board_label_position(pos)
+	local direction = minetest.facedir_to_dir(minetest.get_node(pos).param2)
+	return {
+		x = pos.x + direction.x * 0.53,
+		y = pos.y + 0.12,
+		z = pos.z + direction.z * 0.53,
+	}
+end
+
+local function remove_board_label(pos)
+	for _, object in ipairs(minetest.get_objects_inside_radius(pos, 3)) do
+		local entity = object:get_luaentity()
+		if entity and entity.name == board_label_entity and same_board_position(entity._board_pos, pos) then
+			object:remove()
 		end
-	end,
-	on_rightclick = function(pos, node, clicker)
-		local meta = minetest.get_meta(pos)
-		if clicker:get_player_control().sneak and can_edit(clicker, meta:get_string("owner")) then
-			show_chalkboard_form(pos, clicker)
+	end
+end
+
+local function update_board_label(pos)
+	local meta = minetest.get_meta(pos)
+	local label_pos = board_label_position(pos)
+	local text = board_label_text(meta)
+	local color = meta:get_string("board_name") == "Large Whiteboard" and "#1B2430" or "#FFFFFF"
+
+	for _, object in ipairs(minetest.get_objects_inside_radius(pos, 3)) do
+		local entity = object:get_luaentity()
+		if entity and entity.name == board_label_entity and same_board_position(entity._board_pos, pos) then
+			object:set_pos(label_pos)
+			object:set_nametag_attributes({text = text, color = color})
 			return
 		end
-		send_reference(clicker:get_player_name(), meta:get_string("title"),
-			meta:get_string("message"), meta:get_string("link"))
-		lesson_try_advance(clicker, "chalkboard")
+	end
+
+	local object = minetest.add_entity(label_pos, board_label_entity)
+	if object then
+		local entity = object:get_luaentity()
+		entity._board_pos = vector.new(pos)
+		object:set_nametag_attributes({text = text, color = color})
+	end
+end
+
+minetest.register_entity(board_label_entity, {
+	initial_properties = {
+		physical = false,
+		collide_with_objects = false,
+		pointable = false,
+		visual = "sprite",
+		textures = {"default_paper.png^[opacity:0"},
+		visual_size = {x = 0.01, y = 0.01},
+		static_save = false,
+	},
+	_board_pos = nil,
+})
+
+local function register_classroom_board(name, description, surface_texture)
+	minetest.register_node(name, {
+		description = S(description),
+		drawtype = "nodebox",
+		tiles = {
+			"default_acacia_wood.png",
+			"default_acacia_wood.png",
+			"default_acacia_wood.png",
+			"default_acacia_wood.png",
+			"default_acacia_wood.png",
+			surface_texture,
+		},
+		inventory_image = surface_texture,
+		paramtype2 = "facedir",
+		groups = {choppy = 2, oddly_breakable_by_hand = 2},
+		node_box = {
+			type = "fixed",
+			fixed = {-1.45, -0.5, 0.38, 1.45, 1.25, 0.5},
+		},
+		selection_box = {
+			type = "fixed",
+			fixed = {-1.45, -0.5, 0.38, 1.45, 1.25, 0.5},
+		},
+		on_construct = function(pos)
+			local meta = minetest.get_meta(pos)
+			meta:set_string("title", "")
+			meta:set_string("message", "")
+			meta:set_string("link", "")
+			meta:set_string("owner", "")
+			meta:set_string("board_name", description)
+			meta:set_string("infotext", description)
+			update_board_label(pos)
+		end,
+		after_place_node = function(pos, placer)
+			if placer and placer:is_player() then
+				local meta = minetest.get_meta(pos)
+				meta:set_string("owner", placer:get_player_name())
+				show_chalkboard_form(pos, placer)
+			end
+		end,
+		on_rightclick = function(pos, node, clicker)
+			local meta = minetest.get_meta(pos)
+			if clicker:get_player_control().sneak and can_edit(clicker, meta:get_string("owner")) then
+				show_chalkboard_form(pos, clicker)
+				return
+			end
+			show_board_reading_form(pos, clicker)
+			lesson_try_advance(clicker, "chalkboard")
+		end,
+		on_destruct = function(pos)
+			remove_board_label(pos)
+		end,
+	})
+end
+
+register_classroom_board("openclasscraft_classroom:chalkboard", "Large Blackboard",
+	"default_obsidian.png^[colorize:#111820:210")
+register_classroom_board("openclasscraft_classroom:whiteboard", "Large Whiteboard",
+	"default_paper.png^[colorize:#F4F2EA:100")
+
+minetest.register_lbm({
+	name = "openclasscraft_classroom:restore_board_labels",
+	nodenames = {"openclasscraft_classroom:chalkboard", "openclasscraft_classroom:whiteboard"},
+	run_at_every_load = true,
+	action = function(pos)
+		local meta = minetest.get_meta(pos)
+		if meta:get_string("title") == "Learning Goal"
+			and meta:get_string("message") == "Write lesson instructions here." then
+			meta:set_string("title", "")
+			meta:set_string("message", "")
+		end
+		update_board_label(pos)
+	end,
+})
+
+local function get_chemistry_sample(player)
+	local meta = player:get_meta()
+	local sample = meta:get_string("openclasscraft_chemistry_sample")
+	if sample ~= "acid" and sample ~= "base" then
+		sample = math.random(1, 2) == 1 and "acid" or "base"
+		meta:set_string("openclasscraft_chemistry_sample", sample)
+	end
+	return sample
+end
+
+local function show_chemistry_lab_form(player, status)
+	local sample = get_chemistry_sample(player)
+	local observation = sample == "acid"
+		and "The blue indicator paper turns red."
+		or "The red indicator paper turns blue."
+	minetest.show_formspec(player:get_player_name(), "openclasscraft_classroom:chemistry_lab",
+		"formspec_version[6]size[12,8]" ..
+		"label[0.5,0.5;Chemistry Lab]" ..
+		"box[0.45,1.05;5.35,4.9;#23435FE8]" ..
+		"label[0.8,1.4;Build Water]" ..
+		"label[0.8,2.05;Combine two hydrogen atoms with one oxygen atom.]" ..
+		"label[1.65,2.85;H + H + O -> H2O]" ..
+		"button[1.65,4.15;2.9,0.9;make_water;Make water]" ..
+		"box[6.15,1.05;5.35,4.9;#4B365DE8]" ..
+		"label[6.5,1.4;Acid or Base?]" ..
+		"label[6.5,2.05;Unknown solution observation:]" ..
+		"label[6.5,2.55;" .. esc(observation) .. "]" ..
+		"dropdown[6.5,3.45;3.8,0.75;sample_answer;Choose,Acid,Base;1;false]" ..
+		"button[7.0,4.55;2.8,0.9;identify;Check answer]" ..
+		"label[0.65,6.4;" .. esc(status or "Use the lab to complete chemistry lesson tasks.") .. "]" ..
+		"button_exit[9.7,6.85;1.7,0.8;close;Close]"
+	)
+end
+
+minetest.register_node("openclasscraft_classroom:chemistry_lab", {
+	description = S("Chemistry Lab"),
+	tiles = {
+		"default_steel_block.png^[colorize:#40B9D5:85",
+		"default_steel_block.png^[colorize:#40B9D5:85",
+		"default_steel_block.png^[colorize:#275C85:110",
+		"default_steel_block.png^[colorize:#275C85:110",
+		"default_steel_block.png^[colorize:#275C85:110",
+		"default_steel_block.png^[colorize:#6AE9FF:95",
+	},
+	groups = {cracky = 2, oddly_breakable_by_hand = 2},
+	on_construct = function(pos)
+		minetest.get_meta(pos):set_string("infotext", "Chemistry Lab")
+	end,
+	on_rightclick = function(pos, node, clicker)
+		show_chemistry_lab_form(clicker)
 	end,
 })
 
 minetest.register_node("openclasscraft_classroom:lesson_marker", {
-	description = S("Lesson Checkpoint"),
-	tiles = {
-		"default_steel_block.png^[colorize:#40B9D5:80",
-		"default_steel_block.png^[colorize:#40B9D5:80",
-		"default_steel_block.png^[colorize:#28779C:110",
-	},
+	description = S("Lesson Checkpoint Flag"),
+	drawtype = "mesh",
+	mesh = "openclasscraft_classroom_checkpoint_flag.obj",
+	tiles = {"default_steel_block.png", "openclasscraft_classroom_flag_red.png"},
+	inventory_image = "openclasscraft_classroom_flag_red.png",
+	paramtype2 = "facedir",
 	groups = {cracky = 2, oddly_breakable_by_hand = 2},
+	selection_box = {
+		type = "fixed",
+		fixed = {-0.28, -0.5, -0.28, 0.52, 1.35, 0.28},
+	},
 	on_rightclick = function(pos, node, clicker)
 		if lesson_try_advance(clicker, "marker") then
 			minetest.chat_send_player(clicker:get_player_name(),
@@ -522,9 +716,52 @@ minetest.register_craftitem("openclasscraft_classroom:guide_npc_spawner", {
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
+	if formname == "openclasscraft_classroom:chemistry_lab" then
+		if fields.make_water then
+			local completed = lesson_try_advance(player, "water")
+			local status = "Water formed: two hydrogen atoms and one oxygen atom make H2O."
+			if not completed then
+				status = status .. " Add a Make water task to the lesson to record progress."
+			end
+			show_chemistry_lab_form(player, status)
+			return true
+		end
+
+		if fields.identify then
+			local sample = get_chemistry_sample(player)
+			local answer = (fields.sample_answer or ""):lower()
+			if answer == sample then
+				player:get_meta():set_string("openclasscraft_chemistry_sample", "")
+				local completed = lesson_try_advance(player, "acids_bases")
+				local status = "Correct. " .. (sample == "acid"
+					and "Acids turn blue indicator paper red."
+					or "Bases turn red indicator paper blue.")
+				if not completed then
+					status = status .. " Add an Identify acids and bases task to record progress."
+				end
+				show_chemistry_lab_form(player, status)
+			else
+				show_chemistry_lab_form(player,
+					"Not quite. Check the indicator colour and try again.")
+			end
+			return true
+		end
+		return true
+	end
+
 	if formname == "openclasscraft_classroom:guide_dialogue" then
 		if fields.reference then
 			local link = guide_dialogue_links[player:get_player_name()]
+			if link and link ~= "" then
+				minetest.chat_send_player(player:get_player_name(), "Reference: " .. link)
+			end
+		end
+		return true
+	end
+
+	if formname == "openclasscraft_classroom:board_reading" then
+		if fields.reference then
+			local link = board_reading_links[player:get_player_name()]
 			if link and link ~= "" then
 				minetest.chat_send_player(player:get_player_name(), "Reference: " .. link)
 			end
@@ -606,7 +843,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 				meta:set_string("title", title)
 				meta:set_string("message", message)
 				meta:set_string("link", link)
-				meta:set_string("infotext", title ~= "" and title or "Chalkboard")
+				meta:set_string("infotext", title ~= "" and title or meta:get_string("board_name"))
+				update_board_label(pos)
 			end
 			return true
 		end
