@@ -1,5 +1,6 @@
--- Luanti Edu: Give Initial Stuff
--- Gives every new player starter tools + all coding blocks on first join.
+-- OpenClassCraft catalog setup.
+-- New players start with an empty hotbar and choose unlimited items from the
+-- categorized inventory catalog. /givetools remains available for testing.
 
 local STARTER_ITEMS = {
     -- Starter tools. These use diamond-level capabilities but appear as normal tools.
@@ -90,25 +91,14 @@ local function give_stuff(player)
     )
 end
 
--- Track which players have already received their starter kit
-local given = {}
-
 minetest.register_on_joinplayer(function(player)
-    local pname = player:get_player_name()
-    -- Only give items once per world (stored in player meta)
 	local meta = player:get_meta()
-	-- Small delay to let inventory load
 	minetest.after(1, function()
 		if player and player:is_player() then
-			if meta:get_int("initial_stuff_given") == 1 then
-				if meta:get_int("classroom_upgrade_version") < CLASSROOM_UPGRADE_VERSION then
-					give_missing_classroom_items(player)
-					meta:set_int("classroom_upgrade_version", CLASSROOM_UPGRADE_VERSION)
-				end
-			else
-				give_stuff(player)
-				meta:set_int("initial_stuff_given", 1)
-				meta:set_int("classroom_upgrade_version", CLASSROOM_UPGRADE_VERSION)
+			if meta:get_int("openclasscraft_catalog_welcome") == 0 then
+				meta:set_int("openclasscraft_catalog_welcome", 1)
+				minetest.chat_send_player(player:get_player_name(),
+					"[OpenClassCraft] Your hotbar starts empty. Open inventory to choose items from the unlimited catalog.")
 			end
 		end
 	end)

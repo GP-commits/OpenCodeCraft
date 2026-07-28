@@ -43,10 +43,8 @@ function creative.init_creative_inventory(player)
 			return 0
 		end,
 		allow_take = function(inv, listname, index, stack, player2)
-			local name = player2 and player2:get_player_name() or ""
-			if not minetest.is_creative_enabled(name) then
-				return 0
-			end
+			-- OpenClassCraft uses this detached inventory as an unlimited learning
+			-- catalog for every player, not only players with the creative privilege.
 			return -1
 		end,
 		on_move = function(inv, from_list, from_index, to_list, to_index, count, player2)
@@ -148,7 +146,7 @@ function creative.register_tab(name, title, items)
 	sfinv.register_page("creative:" .. name, {
 		title = title,
 		is_in_nav = function(self, player, context)
-			return minetest.is_creative_enabled(player:get_player_name())
+			return true
 		end,
 		get = function(self, player, context)
 			local player_name = player:get_player_name()
@@ -235,6 +233,9 @@ end
 local registered_nodes = {}
 local registered_tools = {}
 local registered_craftitems = {}
+local registered_classroom = {}
+local registered_programming = {}
+local registered_chemistry = {}
 
 minetest.register_on_mods_loaded(function()
 	for name, def in pairs(minetest.registered_items) do
@@ -248,6 +249,19 @@ minetest.register_on_mods_loaded(function()
 		elseif group.craftitem or (nogroup and minetest.registered_craftitems[name]) then
 			registered_craftitems[name] = def
 		end
+		if name:match("^openclasscraft_classroom:") then
+			registered_classroom[name] = def
+			if name:match("_atom$") or name:match("_molecule$") or
+				name == "openclasscraft_classroom:carbon_dioxide" or
+				name == "openclasscraft_classroom:sodium_chloride" or
+				name == "openclasscraft_classroom:ammonia" or
+				name == "openclasscraft_classroom:methane" then
+				registered_chemistry[name] = def
+			end
+		end
+		if name:match("^luanti_coding:") or name:match("^luanti_robot:") then
+			registered_programming[name] = def
+		end
 	end
 end)
 
@@ -255,12 +269,11 @@ creative.register_tab("all", S("All"), minetest.registered_items)
 creative.register_tab("nodes", S("Nodes"), registered_nodes)
 creative.register_tab("tools", S("Tools"), registered_tools)
 creative.register_tab("craftitems", S("Items"), registered_craftitems)
+creative.register_tab("classroom", S("Classroom"), registered_classroom)
+creative.register_tab("programming", S("Programming"), registered_programming)
+creative.register_tab("chemistry", S("Chemistry"), registered_chemistry)
 
 local old_homepage_name = sfinv.get_homepage_name
 function sfinv.get_homepage_name(player)
-	if minetest.is_creative_enabled(player:get_player_name()) then
-		return "creative:all"
-	else
-		return old_homepage_name(player)
-	end
+	return "creative:all"
 end

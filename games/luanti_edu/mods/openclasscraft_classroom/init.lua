@@ -68,7 +68,7 @@ local function update_npc_head_look(self, dtime)
 	local direction = vector.subtract(player_pos, eye_pos)
 	local horizontal_distance = math.sqrt(direction.x * direction.x + direction.z * direction.z)
 	-- X is pitch (up/down), Y is yaw (left/right), and Z roll stays at zero.
-	local target_pitch = clamp(-math.atan2(direction.y, horizontal_distance),
+	local target_pitch = clamp(math.atan2(direction.y, horizontal_distance),
 		-NPC_MAX_HEAD_PITCH, NPC_MAX_HEAD_PITCH)
 	-- minetest.dir_to_yaw is the engine-safe equivalent of atan2(dx, dz).
 	local target_yaw = minetest.dir_to_yaw({x = direction.x, y = 0, z = direction.z}) + NPC_MODEL_YAW_OFFSET
@@ -561,9 +561,9 @@ end
 local function board_surface_position(pos)
 	local direction = minetest.facedir_to_dir(minetest.get_node(pos).param2)
 	return {
-		x = pos.x + direction.x * 0.515,
+		x = pos.x - direction.x * 0.515,
 		y = pos.y + 0.12,
-		z = pos.z + direction.z * 0.515,
+		z = pos.z - direction.z * 0.515,
 	}
 end
 
@@ -615,7 +615,7 @@ minetest.register_entity(board_surface_entity, {
 		visual = "cube",
 		textures = {"blank.png", "blank.png", "blank.png", "blank.png", "blank.png", "blank.png"},
 		visual_size = {x = 2.72, y = 1.55, z = 0.01},
-		use_texture_alpha = "blend",
+		use_texture_alpha = true,
 		static_save = false,
 	},
 	_board_pos = nil,
