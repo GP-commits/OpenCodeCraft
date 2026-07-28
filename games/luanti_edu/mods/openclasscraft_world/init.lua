@@ -276,7 +276,7 @@ register_micro_block("micro_sand", "Small Sand Block", "default_sand.png", {
 })
 
 minetest.register_lbm({
-	label = "Remove old OpenClassCraft ground micro blocks",
+	label = "Remove obsolete or unsupported OpenClassCraft ground micro blocks",
 	name = "openclasscraft_world:remove_old_floating_micro_blocks",
 	nodenames = {
 		"openclasscraft_world:micro_grass_small",
@@ -286,8 +286,19 @@ minetest.register_lbm({
 	},
 	run_at_every_load = true,
 	action = function(pos)
+		local node = minetest.get_node(pos)
+		-- The early grass and dirt micro blocks are no longer generated. Remove
+		-- them from existing worlds so they cannot appear suspended above terrain.
+		if node.name == "openclasscraft_world:micro_grass_small" or
+			node.name == "openclasscraft_world:micro_grass_medium" or
+			node.name == "openclasscraft_world:micro_dirt" then
+			minetest.remove_node(pos)
+			return
+		end
+
 		local below = minetest.get_node_or_nil({x = pos.x, y = pos.y - 1, z = pos.z})
-		if below and (ground_nodes[below.name] or dry_ground_nodes[below.name] or decorative_ground_nodes[below.name]) then
+		if not below or not (ground_nodes[below.name] or dry_ground_nodes[below.name] or decorative_ground_nodes[below.name] or
+			minetest.get_item_group(below.name, "tree") > 0 or minetest.get_item_group(below.name, "leaves") > 0) then
 			minetest.remove_node(pos)
 		end
 	end,

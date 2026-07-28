@@ -496,3 +496,37 @@ minetest.register_craft({
 	recipe = "default:sword_wood",
 	burntime = 5,
 })
+
+-- OpenClassCraft keeps the student inventory focused: one pickaxe, one axe,
+-- one shovel, and no swords. The visible tools use diamond-level capabilities
+-- but are presented with plain classroom names.
+local hidden_tools = {
+	"default:pick_wood",
+	"default:pick_stone",
+	"default:pick_bronze",
+	"default:pick_steel",
+	"default:pick_mese",
+	"default:shovel_wood",
+	"default:shovel_stone",
+	"default:shovel_bronze",
+	"default:shovel_steel",
+	"default:shovel_mese",
+	"default:axe_wood",
+	"default:axe_stone",
+	"default:axe_bronze",
+	"default:axe_steel",
+	"default:axe_mese",
+	"default:hoe_diamond",
+	"default:sword_wood",
+	"default:sword_stone",
+	"default:sword_bronze",
+	"default:sword_steel",
+	"default:sword_mese",
+	"default:sword_diamond",
+}
+
+for _, name in ipairs(hidden_tools) do
+	minetest.clear_craft({output = name})
+	minetest.clear_craft({recipe = name})
+	minetest.unregister_item(name)
+end

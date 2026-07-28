@@ -249,7 +249,7 @@ minetest.register_on_mods_loaded(function()
 		elseif group.craftitem or (nogroup and minetest.registered_craftitems[name]) then
 			registered_craftitems[name] = def
 		end
-		if name:match("^openclasscraft_classroom:") then
+		if name:match("^openclasscraft_classroom:") or name:match("^openclasscraft_creator:") then
 			registered_classroom[name] = def
 			if name:match("_atom$") or name:match("_molecule$") or
 				name == "openclasscraft_classroom:carbon_dioxide" or

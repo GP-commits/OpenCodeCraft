@@ -561,9 +561,9 @@ end
 local function board_surface_position(pos)
 	local direction = minetest.facedir_to_dir(minetest.get_node(pos).param2)
 	return {
-		x = pos.x - direction.x * 0.515,
+		x = pos.x + direction.x * 0.374,
 		y = pos.y + 0.12,
-		z = pos.z - direction.z * 0.515,
+		z = pos.z + direction.z * 0.374,
 	}
 end
 
