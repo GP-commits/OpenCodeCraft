@@ -13,6 +13,12 @@ local STARTER_ITEMS = {
     "openclasscraft_classroom:chalkboard",
     "openclasscraft_classroom:whiteboard",
     "openclasscraft_classroom:chemistry_lab",
+	"openclasscraft_classroom:hydrogen_atom 16",
+	"openclasscraft_classroom:oxygen_atom 12",
+	"openclasscraft_classroom:carbon_atom 8",
+	"openclasscraft_classroom:nitrogen_atom 8",
+	"openclasscraft_classroom:sodium_atom 8",
+	"openclasscraft_classroom:chlorine_atom 8",
     "openclasscraft_classroom:lesson_planner",
     "openclasscraft_classroom:lesson_marker 3",
 
@@ -33,6 +39,35 @@ local STARTER_ITEMS = {
     "luanti_coding:stop 5",
     "luanti_coding:wire 16",
 }
+
+-- Added separately so existing players receive classroom features introduced
+-- after their first starter kit without duplicating their whole inventory.
+local CLASSROOM_UPGRADE_ITEMS = {
+	"openclasscraft_classroom:guide_npc_spawner",
+	"openclasscraft_classroom:chalkboard",
+	"openclasscraft_classroom:whiteboard",
+	"openclasscraft_classroom:chemistry_lab",
+	"openclasscraft_classroom:hydrogen_atom 16",
+	"openclasscraft_classroom:oxygen_atom 12",
+	"openclasscraft_classroom:carbon_atom 8",
+	"openclasscraft_classroom:nitrogen_atom 8",
+	"openclasscraft_classroom:sodium_atom 8",
+	"openclasscraft_classroom:chlorine_atom 8",
+	"openclasscraft_classroom:lesson_planner",
+	"openclasscraft_classroom:lesson_marker 3",
+}
+
+local CLASSROOM_UPGRADE_VERSION = 2
+
+local function give_missing_classroom_items(player)
+	local inv = player:get_inventory()
+	for _, item in ipairs(CLASSROOM_UPGRADE_ITEMS) do
+		local stack = ItemStack(item)
+		if not inv:contains_item("main", stack) and inv:room_for_item("main", stack) then
+			inv:add_item("main", stack)
+		end
+	end
+end
 
 local function give_stuff(player)
     local inv = player:get_inventory()
@@ -61,15 +96,22 @@ local given = {}
 minetest.register_on_joinplayer(function(player)
     local pname = player:get_player_name()
     -- Only give items once per world (stored in player meta)
-    local meta = player:get_meta()
-    if meta:get_int("initial_stuff_given") == 1 then return end
-    -- Small delay to let inventory load
-    minetest.after(1, function()
-        if player and player:is_player() then
-            give_stuff(player)
-            meta:set_int("initial_stuff_given", 1)
-        end
-    end)
+	local meta = player:get_meta()
+	-- Small delay to let inventory load
+	minetest.after(1, function()
+		if player and player:is_player() then
+			if meta:get_int("initial_stuff_given") == 1 then
+				if meta:get_int("classroom_upgrade_version") < CLASSROOM_UPGRADE_VERSION then
+					give_missing_classroom_items(player)
+					meta:set_int("classroom_upgrade_version", CLASSROOM_UPGRADE_VERSION)
+				end
+			else
+				give_stuff(player)
+				meta:set_int("initial_stuff_given", 1)
+				meta:set_int("classroom_upgrade_version", CLASSROOM_UPGRADE_VERSION)
+			end
+		end
+	end)
 end)
 
 -- Command to re-give items if needed

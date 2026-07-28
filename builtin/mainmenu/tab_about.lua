@@ -45,7 +45,7 @@ return {
 	caption = fgettext("About"),
 
 	cbf_formspec = function(tabview, name, tabdata)
-		local engine_logofile = defaulttexturedir .. "logo.png"
+		local engine_logofile = defaulttexturedir .. "luanti_attribution_logo.png"
 		local version = core.get_version()
 
 		-- Get game details for OpenClassCraft
