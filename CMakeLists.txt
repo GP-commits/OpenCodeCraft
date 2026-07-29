@@ -13,13 +13,13 @@ set(GCC_MINIMUM_VERSION "7.5")
 set(CLANG_MINIMUM_VERSION "7.0.1")
 
 # You should not need to edit these manually, use util/bump_version.sh
-set(VERSION_MAJOR 5)
-set(VERSION_MINOR 17)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
-# Change to false for releases
-set(DEVELOPMENT_BUILD TRUE)
+# OpenClassCraft's first public release.
+set(DEVELOPMENT_BUILD FALSE)
 
 set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 if(VERSION_EXTRA)

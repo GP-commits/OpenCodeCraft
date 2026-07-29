@@ -12,6 +12,13 @@
 #    Further documentation:
 #    https://docs.luanti.org/
 
+# OpenClassCraft Teacher Console LAN bridge. Leave the token blank until the
+# teacher exports their local bridge settings from OpenClassCraft Teacher Console.
+# secure.http_mods = openclasscraft_classroom
+# openclasscraft_teacher_bridge_url = http://127.0.0.1:31085/session
+# openclasscraft_teacher_events_url = http://127.0.0.1:31085/events
+# openclasscraft_teacher_bridge_token =
+
 #
 # Controls
 #
@@ -3803,4 +3810,3 @@
 #    Controlled by a checkbox in the settings menu.
 #    type: bool
 # show_advanced = false
-

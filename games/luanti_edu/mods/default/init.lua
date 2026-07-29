@@ -33,8 +33,8 @@ local function default_build_formspec_prepend(player)
 	local colorblind = default_setting_enabled("openclasscraft_colorblind_support")
 	local large_ui = default_setting_enabled("openclasscraft_large_ui")
 
-	local bgcolor = high_contrast and "#000000F4" or "#080808BB"
-	local normal = high_contrast and "#111111F8" or "#00000069"
+	local bgcolor = high_contrast and "#000000F4" or "#08080870"
+	local normal = high_contrast and "#111111F8" or "#00000048"
 	local hover = high_contrast and "#2D3748" or "#5A5A5A"
 	local border = high_contrast and "#FFFFFF" or "#141318"
 	local selected = colorblind and "#0072B2" or "#30434C"

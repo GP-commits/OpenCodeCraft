@@ -1,0 +1,33 @@
+{
+  "name": "openclasscraft-teacher-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private local classroom workflow dashboard for OpenClassCraft.",
+  "main": "main.js",
+  "scripts": {
+    "start": ".\\.electron-runtime\\electron.exe .",
+    "package:win": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "org.openclasscraft.teacherconsole",
+    "productName": "OpenClassCraft Teacher Console",
+    "electronDist": ".electron-runtime",
+    "files": [
+      "**/*",
+      "!dist/**"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "electron-winstaller@5.4.0": true
+  }
+}

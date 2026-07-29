@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenClassCraft Teacher Console</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">OC</span><span>OpenClassCraft<br><strong>Teacher Console</strong></span></div>
+    <nav aria-label="Primary navigation">
+      <button class="nav-item active" data-view="dashboard">Dashboard</button>
+      <button class="nav-item" data-view="classroom">Classroom</button>
+      <button class="nav-item" data-view="lessons">Lessons</button>
+      <button class="nav-item" data-view="students">Students</button>
+      <button class="nav-item" data-view="reports">Reports</button>
+    </nav>
+    <div class="lan-card"><span class="eyebrow">LAN classroom</span><strong>Ready for local worlds</strong><p>Host the world in OpenClassCraft, then share its join details with your class.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><p class="eyebrow">Classroom workspace</p><h1 id="pageTitle">Dashboard</h1></div><div class="header-actions"><span id="saveState" class="save-state">Local data ready</span><button id="restoreButton" class="button secondary">Restore</button><button id="backupButton" class="button secondary">Back up</button><button id="saveButton" class="button secondary">Save</button><button id="newButton" class="button primary">New lesson</button></div></header>
+    <section id="dashboard" class="view active"></section>
+    <section id="classroom" class="view"></section>
+    <section id="lessons" class="view"></section>
+    <section id="students" class="view"></section>
+    <section id="reports" class="view"></section>
+  </main>
+  <dialog id="lessonDialog"><form method="dialog"><header><h2 id="lessonDialogTitle">New lesson</h2><button class="close-button" value="cancel" aria-label="Close">X</button></header><label>Lesson title<input id="lessonTitle" required maxlength="64" placeholder="e.g. Build a Rainforest"></label><label>Subject<select id="lessonSubject"><option>Coding</option><option>Chemistry</option><option>Science</option><option>Environmental Studies</option></select></label><label>Learning objectives<textarea id="lessonObjectives" maxlength="280" placeholder="What will students learn?"></textarea></label><label>Checkpoints, one per line<textarea id="lessonCheckpoints" placeholder="Meet the Class Guide&#10;Complete the activity"></textarea></label><footer><button value="cancel" class="button secondary">Cancel</button><button id="createLesson" value="default" class="button primary">Save lesson</button></footer></form></dialog>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,4 +1,7 @@
 local S = minetest.get_translator("openclasscraft_classroom")
+-- The bridge is opt-in: it can only reach a token-protected server on the
+-- teacher's own computer when this mod is explicitly granted HTTP access.
+local teacher_bridge_http = minetest.request_http_api and minetest.request_http_api()
 
 local NPC_GRAVITY = -9.81
 local NPC_LOOK_RADIUS = 6
@@ -174,6 +177,7 @@ local lesson_task_types = {
 	teacher = "Teacher check",
 }
 local lesson_type_order = {"chalkboard", "guide", "marker", "water", "teacher"}
+local teacher_bridge_report_progress = function() end
 
 local function get_lesson()
 	local data = lesson_storage:get_string("active_lesson")
@@ -224,6 +228,7 @@ local function lesson_try_advance(player, source)
 
 	progress = progress + 1
 	set_lesson_progress(player, lesson, progress)
+	teacher_bridge_report_progress(player, lesson, progress)
 	if progress >= #lesson.tasks then
 		minetest.chat_send_player(player:get_player_name(),
 			"[OpenClassCraft] Lesson complete: " .. lesson.title)
@@ -653,6 +658,11 @@ local function register_classroom_board(name, description, surface_texture)
 			meta:set_string("board_name", description)
 			meta:set_string("infotext", description)
 			update_board_surface(pos)
+			minetest.get_node_timer(pos):start(0.2)
+		end,
+		on_timer = function(pos)
+			update_board_surface(pos)
+			return false
 		end,
 		after_place_node = function(pos, placer)
 			if placer and placer:is_player() then
@@ -687,7 +697,7 @@ end
 register_classroom_board("openclasscraft_classroom:chalkboard", "Large Blackboard",
 	"default_obsidian.png^[colorize:#111820:210")
 register_classroom_board("openclasscraft_classroom:whiteboard", "Large Whiteboard",
-	"default_paper.png^[colorize:#F4F2EA:100")
+	"openclasscraft_classroom_whiteboard.png")
 
 minetest.register_lbm({
 	name = "openclasscraft_classroom:restore_board_labels",
@@ -911,7 +921,8 @@ minetest.register_node("openclasscraft_classroom:lesson_marker", {
 	mesh = "openclasscraft_classroom_checkpoint_flag.obj",
 	-- Mesh material slots are ordered by material name: cloth, then stand.
 	tiles = {"openclasscraft_classroom_flag_red.png", "default_steel_block.png"},
-	inventory_image = "openclasscraft_classroom_flag_red.png",
+	inventory_image = "openclasscraft_classroom_checkpoint_flag.png",
+	wield_image = "openclasscraft_classroom_checkpoint_flag.png",
 	paramtype2 = "facedir",
 	groups = {cracky = 2, oddly_breakable_by_hand = 2},
 	selection_box = {
@@ -1089,4 +1100,116 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 			return true
 		end
 	end
+end)
+
+local function bridge_apply_lesson(payload)
+	if type(payload) ~= "table" or not payload.active or type(payload.lesson) ~= "table" then
+		return false, "No active Teacher Console lesson."
+	end
+	if type(payload.lesson.title) ~= "string" or type(payload.lesson.tasks) ~= "table" then
+		return false, "Teacher Console sent an invalid lesson."
+	end
+
+	local tasks = {}
+	for _, task in ipairs(payload.lesson.tasks) do
+		if type(task) == "table" and type(task.text) == "string" and task.text ~= "" then
+			tasks[#tasks + 1] = {kind = lesson_task_types[task.kind] and task.kind or "teacher", text = task.text}
+		end
+	end
+	if #tasks == 0 then
+		return false, "The selected lesson has no checkpoints."
+	end
+
+	local lesson = get_lesson()
+	lesson.owner = "Teacher Console"
+	lesson.title = payload.lesson.title
+	lesson.goal = type(payload.lesson.goal) == "string" and payload.lesson.goal or ""
+	lesson.tasks = tasks
+	lesson.revision = lesson.revision + 1
+	save_lesson(lesson)
+	lesson_storage:set_string("teacher_bridge_version", tostring(payload.updatedAt or ""))
+	return true, "Imported " .. lesson.title .. " from Teacher Console."
+end
+
+local function bridge_fetch_lesson(notify_player)
+	local url = minetest.settings:get("openclasscraft_teacher_bridge_url") or ""
+	local token = minetest.settings:get("openclasscraft_teacher_bridge_token") or ""
+	if not teacher_bridge_http then
+		return false, "Teacher bridge needs secure.http_mods = openclasscraft_classroom."
+	end
+	if url == "" or token == "" then
+		return false, "Teacher bridge settings are not configured."
+	end
+
+	teacher_bridge_http.fetch({
+		url = url,
+		timeout = 3,
+		quiet = true,
+		extra_headers = {"X-OpenClassCraft-Token: " .. token},
+	}, function(result)
+		if not result.succeeded or result.code ~= 200 then
+			if notify_player then
+				minetest.chat_send_player(notify_player, "[OpenClassCraft] Teacher Console is unavailable.")
+			end
+			return
+		end
+		local payload = minetest.parse_json(result.data)
+		local imported, message = bridge_apply_lesson(payload)
+		if notify_player then
+			minetest.chat_send_player(notify_player, "[OpenClassCraft] " .. message)
+		elseif imported then
+			minetest.log("action", "[OpenClassCraft] " .. message)
+		end
+	end)
+	return true
+end
+
+teacher_bridge_report_progress = function(player, lesson, progress)
+	local url = minetest.settings:get("openclasscraft_teacher_events_url") or ""
+	local token = minetest.settings:get("openclasscraft_teacher_bridge_token") or ""
+	if not teacher_bridge_http or url == "" or token == "" then
+		return
+	end
+	teacher_bridge_http.fetch({
+		url = url,
+		method = "POST",
+		timeout = 3,
+		quiet = true,
+		data = minetest.write_json({
+			type = "lesson_progress",
+			playerName = player:get_player_name(),
+			lessonTitle = lesson.title,
+			complete = progress,
+			total = #lesson.tasks,
+			at = os.time(),
+		}),
+		extra_headers = {
+			"Content-Type: application/json",
+			"X-OpenClassCraft-Token: " .. token,
+		},
+	}, function(result)
+		if not result.succeeded then
+			minetest.log("warning", "[OpenClassCraft] Teacher Console progress event was not delivered.")
+		end
+	end)
+end
+
+minetest.register_chatcommand("occ_teacher_sync", {
+	params = "",
+	description = "Import the active local Teacher Console lesson",
+	privs = {server = true},
+	func = function(name)
+		local started, message = bridge_fetch_lesson(name)
+		return started, message or "Checking Teacher Console..."
+	end,
+})
+
+local teacher_bridge_timer = 0
+minetest.register_globalstep(function(dtime)
+	teacher_bridge_timer = teacher_bridge_timer + dtime
+	if teacher_bridge_timer < 20 then
+		return
+	end
+	teacher_bridge_timer = 0
+	bridge_fetch_lesson()
 end)

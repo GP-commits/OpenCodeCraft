@@ -22,6 +22,7 @@ local STARTER_ITEMS = {
 	"openclasscraft_classroom:chlorine_atom 8",
     "openclasscraft_classroom:lesson_planner",
     "openclasscraft_classroom:lesson_marker 3",
+    "openclasscraft_creator:world_edit_wand",
 
     -- All Coding Blocks (5 of each)
     "luanti_coding:start",

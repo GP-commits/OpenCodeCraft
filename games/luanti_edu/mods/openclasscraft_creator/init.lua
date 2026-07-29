@@ -10,6 +10,7 @@ local styles = {
 
 local style_order = {"grass", "stone", "wood", "glass"}
 local sessions = {}
+local world_edit_selections = {}
 
 local function trim(value)
 	return (value or ""):gsub("^%s*(.-)%s*$", "%1")
@@ -357,6 +358,123 @@ minetest.register_craftitem("openclasscraft_creator:lab", {
 	groups = {classroom = 1},
 	on_use = function(itemstack, user)
 		show_creator(user)
+		return itemstack
+	end,
+})
+
+local function world_edit_marker(player, message)
+	minetest.chat_send_player(player:get_player_name(), "[World Edit] " .. message)
+end
+
+local function selected_node_pos(pointed_thing)
+	if not pointed_thing or pointed_thing.type ~= "node" then
+		return nil
+	end
+	return vector.round(pointed_thing.under)
+end
+
+local function remove_entities_in_flat_area(minp, maxp)
+	local center = vector.new((minp.x + maxp.x) / 2, minp.y + 4, (minp.z + maxp.z) / 2)
+	local radius = math.max(maxp.x - minp.x, maxp.z - minp.z) / 2 + 8
+	local removed = 0
+	for _, object in ipairs(minetest.get_objects_inside_radius(center, radius)) do
+		if not object:is_player() then
+			local pos = object:get_pos()
+			if pos and pos.x >= minp.x and pos.x <= maxp.x and
+					pos.z >= minp.z and pos.z <= maxp.z and
+					pos.y >= minp.y - 2 and pos.y <= minp.y + 12 then
+				object:remove()
+				removed = removed + 1
+			end
+		end
+	end
+	return removed
+end
+
+local function clear_world_edit_area(player)
+	local name = player:get_player_name()
+	local selection = world_edit_selections[name]
+	if not selection or not selection.pos1 or not selection.pos2 then
+		world_edit_marker(player, "Select two corners first: left-click corner 1, then left-click corner 2.")
+		return
+	end
+
+	local pos1 = selection.pos1
+	local pos2 = selection.pos2
+	local minp = {
+		x = math.min(pos1.x, pos2.x),
+		y = pos1.y,
+		z = math.min(pos1.z, pos2.z),
+	}
+	local maxp = {
+		x = math.max(pos1.x, pos2.x),
+		y = pos1.y,
+		z = math.max(pos1.z, pos2.z),
+	}
+	local width = maxp.x - minp.x + 1
+	local depth = maxp.z - minp.z + 1
+	local nodes = width * depth
+	if nodes > 4096 then
+		world_edit_marker(player, "Area is too large. Keep flat clears under 4096 blocks.")
+		return
+	end
+
+	local cleared_nodes = 0
+	for x = minp.x, maxp.x do
+		for z = minp.z, maxp.z do
+			local pos = {x = x, y = minp.y, z = z}
+			local node = minetest.get_node(pos)
+			if node.name ~= "air" and node.name ~= "ignore" then
+				minetest.remove_node(pos)
+				cleared_nodes = cleared_nodes + 1
+			end
+		end
+	end
+
+	local removed_entities = remove_entities_in_flat_area(minp, maxp)
+	world_edit_selections[name] = nil
+	world_edit_marker(player, "Cleared " .. cleared_nodes .. " flat blocks and removed " .. removed_entities .. " entities.")
+end
+
+local function use_world_edit_wand(player, pointed_thing)
+	local pos = selected_node_pos(pointed_thing)
+	if not pos then
+		clear_world_edit_area(player)
+		return
+	end
+
+	local name = player:get_player_name()
+	local selection = world_edit_selections[name] or {}
+	if not selection.pos1 then
+		world_edit_selections[name] = {pos1 = pos}
+		world_edit_marker(player, "Corner 1 set at " .. minetest.pos_to_string(pos) .. ". Click another block for corner 2.")
+	elseif not selection.pos2 then
+		selection.pos2 = pos
+		world_edit_selections[name] = selection
+		world_edit_marker(player, "Corner 2 set at " .. minetest.pos_to_string(pos) .. ". Click once more with the wand to clear.")
+	else
+		clear_world_edit_area(player)
+	end
+end
+
+minetest.register_tool("openclasscraft_creator:world_edit_wand", {
+	description = "World Edit Wand\nClick two corners, then click again to clear a flat area and entities",
+	inventory_image = "openclasscraft_icon_creator_lab_alpha.png^[colorize:#31d7ff:80",
+	groups = {classroom = 1},
+	on_use = function(itemstack, user, pointed_thing)
+		use_world_edit_wand(user, pointed_thing)
+		return itemstack
+	end,
+	on_place = function(itemstack, placer, pointed_thing)
+		if pointed_thing and pointed_thing.type == "node" then
+			use_world_edit_wand(placer, pointed_thing)
+			return itemstack
+		end
+		clear_world_edit_area(placer)
+		return itemstack
+	end,
+	on_secondary_use = function(itemstack, user)
+		clear_world_edit_area(user)
 		return itemstack
 	end,
 })

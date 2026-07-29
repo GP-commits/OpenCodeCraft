@@ -51,6 +51,37 @@ local shore_micro_nodes = {
 local ambient_music_handles = {}
 local ambient_music_name = "openclasscraft_ambient_learning_loop"
 
+local function apply_real_world_sky(player)
+	if player.set_sky then
+		player:set_sky({
+			type = "regular",
+			clouds = true,
+			sky_color = {
+				day_sky = "#63B9FF",
+				day_horizon = "#D7F0FF",
+				dawn_sky = "#FFB66E",
+				dawn_horizon = "#FFE0B8",
+				night_sky = "#071226",
+				night_horizon = "#172B46",
+				indoors = "#88BFEA",
+				fog_sun_tint = "#FFE0A8",
+				fog_moon_tint = "#9DB8E8",
+			},
+		})
+	end
+
+	if player.set_clouds then
+		player:set_clouds({
+			density = 0.38,
+			color = "#FFFFFFE8",
+			ambient = "#DCEBFFFF",
+			height = 145,
+			thickness = 18,
+			speed = {x = 0.35, z = -0.08},
+		})
+	end
+end
+
 local function stop_ambient_music(player_name)
 	local handle = ambient_music_handles[player_name]
 	if handle then
@@ -336,8 +367,10 @@ minetest.register_on_generated(function(minp, maxp, blockseed)
 end)
 
 minetest.register_on_joinplayer(function(player)
+	apply_real_world_sky(player)
 	minetest.after(2, function()
 		if player and player:is_player() then
+			apply_real_world_sky(player)
 			start_ambient_music(player)
 		end
 	end)
@@ -356,6 +389,18 @@ minetest.register_chatcommand("music", {
 		end
 		start_ambient_music(player)
 		return true, "OpenClassCraft background music restarted."
+	end,
+})
+
+minetest.register_chatcommand("sky", {
+	description = "Refresh the OpenClassCraft real-world sky",
+	func = function(name)
+		local player = minetest.get_player_by_name(name)
+		if not player then
+			return false, "Player is not online."
+		end
+		apply_real_world_sky(player)
+		return true, "OpenClassCraft sky refreshed."
 	end,
 })
 

@@ -55,10 +55,7 @@ function sfinv.make_formspec(player, context, content, show_inv, size)
 		"style_type[button,image_button;border=true;bgcolor=#3d3d3d;textcolor=#ffffff]",
 		"style_type[button:hovered,image_button:hovered;bgcolor=#555555]",
 		"style_type[button:pressed,image_button:pressed;bgcolor=#222222]",
-		"listcolors[#1f1f1fee;#4a4a4a;#141318;#5b8d45;#ffffff]",
-		"box[0,0;9,9.75;#303030f2]",
-		"box[0.12,0.12;8.76,9.51;#111111]",
-		"box[0.2,0.2;8.6,9.35;#303030f2]",
+		"listcolors[#10141855;#4a4a4aaa;#14131899;#5b8d45;#ffffff]",
 		sfinv.get_nav_fs(player, context, context.nav_titles, context.nav_idx),
 		show_inv and theme_inv or "",
 		content

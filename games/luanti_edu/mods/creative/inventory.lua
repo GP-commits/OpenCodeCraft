@@ -160,7 +160,7 @@ function creative.register_tab(name, title, items)
 				"label[5.8,4.15;" .. minetest.colorize("#FFFF00", tostring(pagenum)) .. " / " .. tostring(pagemax) .. "]" ..
 				[[
 					image[4.08,4.2;0.8,0.8;creative_trash_icon.png]
-					listcolors[#00000069;#5A5A5A;#141318;#30434C;#FFF]
+					listcolors[#10141855;#5A5A5AAA;#14131899;#30434C;#FFF]
 					list[detached:trash;main;4.02,4.1;1,1;]
 					listring[]
 					image_button[5,4.05;0.8,0.8;creative_prev_icon.png;creative_prev;]

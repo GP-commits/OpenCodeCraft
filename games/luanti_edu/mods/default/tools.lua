@@ -527,6 +527,5 @@ local hidden_tools = {
 
 for _, name in ipairs(hidden_tools) do
 	minetest.clear_craft({output = name})
-	minetest.clear_craft({recipe = name})
 	minetest.unregister_item(name)
 end
